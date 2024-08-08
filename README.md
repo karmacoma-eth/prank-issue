@@ -45,6 +45,9 @@ contract TestPrank is Test {
         A a = new A(new B());
 
         vm.prank(makeAddr("sender"), makeAddr("origin"));
+
+        // during this call, a calls b
+        // are b's sender and origin pranked?
         a.foo();
     }
 }
@@ -52,7 +55,7 @@ contract TestPrank is Test {
 
 ## Test
 
-See [PrankTest.t.sol](https://github.com/karmacoma-eth/prank-issue/blob/main/test/PrankTest.t.sol#L82) for a functional test.
+See [PrankTest.t.sol](https://github.com/karmacoma-eth/prank-issue/blob/main/test/PrankTest.t.sol#L91) for a functional test.
 
 Currently, forge:
 - pranks the sender and origin for the next outer call
