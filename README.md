@@ -1,66 +1,59 @@
-## Foundry
+# Foundry prank semantics
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+For the following prank functions:
 
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+```solidity
+function prank(address) external;
+function prank(address sender, address origin) external;
 ```
 
-### Test
+The [Foundry Book](https://book.getfoundry.sh/cheatcodes/prank?highlight=prank#prank) has the following description:
 
-```shell
-$ forge test
+```
+Sets msg.sender to the specified address for the next call. “The next call” includes static calls as well, but not calls to the cheat code address.
+
+If the alternative signature of prank is used, then tx.origin is set as well for the next call.
 ```
 
-### Format
+## The problem
 
-```shell
-$ forge fmt
+If other calls happen during the "next call" (e.g. test calls A, and A calls B), are these calls also pranked? In other words, are nested calls part of the "next call"?
+
+```solidity
+import {Test, console} from "forge-std/Test.sol";
+
+contract B {
+    function bar() public {
+        // is this pranked?
+    }
+}
+
+contract A {
+    B b;
+
+    constructor(B _b) {
+        b = _b;
+    }
+
+    function foo() public {
+        b.bar(); // is this part of the pranked "next call"?
+    }
+}
+
+contract TestPrank is Test {
+    function testPrank() public {
+        A a = new A(new B());
+
+        vm.prank(makeAddr("sender"), makeAddr("origin"));
+        a.foo();
+    }
+}
 ```
 
-### Gas Snapshots
+## Test
 
-```shell
-$ forge snapshot
-```
+See [PrankTest.t.sol](https://github.com/karmacoma-eth/prank-issue/blob/main/test/PrankTest.t.sol#L82) for a functional test.
 
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Currently, forge:
+- pranks the sender and origin for the next outer call
+- pranks the origin for all nested calls (i.e. nested calls inherit the origin prank from parent contexts, but not the sender prank)
